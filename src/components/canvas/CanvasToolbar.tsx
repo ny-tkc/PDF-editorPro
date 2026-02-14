@@ -58,7 +58,7 @@ export function CanvasToolbar({ onDeleteSelected }: CanvasToolbarProps) {
   };
 
   return (
-    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg">
+    <div className="flex items-center justify-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
       {tools.map((tool) => (
         <IconButton
           key={tool.id}
@@ -69,7 +69,7 @@ export function CanvasToolbar({ onDeleteSelected }: CanvasToolbarProps) {
           {renderIcon(tool.icon)}
         </IconButton>
       ))}
-      <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
+      <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-2" />
       <IconButton onClick={onDeleteSelected} tooltip="選択を削除">
         <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

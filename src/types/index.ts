@@ -3,6 +3,8 @@
 export interface PageData {
   id: string;
   sourceType: 'pdf' | 'image';
+  sourceFileName: string;
+  sourceGroupId: string;
   pdfBytes: Uint8Array | null;
   imageDataUrl: string | null;
   fabricJSON: string | null;
@@ -12,11 +14,15 @@ export interface PageData {
   thumbnailDataUrl: string | null;
 }
 
+export type ViewMode = 'desk' | 'group' | 'book';
+
 export interface DocumentState {
   pages: PageData[];
   fileName: string;
   selectedPageIds: string[];
   activePageId: string | null;
+  viewMode: ViewMode;
+  bookCurrentIndex: number;
 }
 
 // === Editor Types ===
@@ -25,6 +31,7 @@ export type EditTool = 'select' | 'text' | 'arrow' | 'rectangle' | 'circle' | 'l
 
 export interface EditorState {
   isEditMode: boolean;
+  editingPageId: string | null;
   activeTool: EditTool;
   zoom: number;
   gridSnap: boolean;
@@ -48,10 +55,12 @@ export type DocumentAction =
   | { type: 'SET_SELECTION'; pageIds: string[] }
   | { type: 'TOGGLE_SELECTION'; pageId: string }
   | { type: 'SET_FILE_NAME'; name: string }
+  | { type: 'SET_VIEW_MODE'; mode: ViewMode }
+  | { type: 'SET_BOOK_INDEX'; index: number }
   | { type: 'REPLACE_STATE'; state: DocumentState };
 
 export type EditorAction =
-  | { type: 'ENTER_EDIT_MODE' }
+  | { type: 'ENTER_EDIT_MODE'; pageId: string }
   | { type: 'EXIT_EDIT_MODE' }
   | { type: 'SET_TOOL'; tool: EditTool }
   | { type: 'SET_ZOOM'; zoom: number }

@@ -3,6 +3,7 @@ import { DEFAULT_ZOOM, DEFAULT_GRID_SIZE, MIN_ZOOM, MAX_ZOOM } from '../utils/co
 
 export const initialEditorState: EditorState = {
   isEditMode: false,
+  editingPageId: null,
   activeTool: 'select',
   zoom: DEFAULT_ZOOM,
   gridSnap: false,
@@ -13,10 +14,10 @@ export const initialEditorState: EditorState = {
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'ENTER_EDIT_MODE':
-      return { ...state, isEditMode: true, activeTool: 'select' };
+      return { ...state, isEditMode: true, editingPageId: action.pageId, activeTool: 'select' };
 
     case 'EXIT_EDIT_MODE':
-      return { ...state, isEditMode: false, activeTool: 'select' };
+      return { ...state, isEditMode: false, editingPageId: null, activeTool: 'select' };
 
     case 'SET_TOOL':
       return { ...state, activeTool: action.tool };

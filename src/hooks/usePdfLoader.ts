@@ -7,7 +7,8 @@ import { fileToArrayBuffer, fileToDataUrl, isImageFile, isPdfFile } from '../ser
 import { PDF_RENDER_SCALE, THUMBNAIL_RENDER_SCALE } from '../utils/constants';
 
 export function usePdfLoader() {
-  const loadFromPdfBytes = useCallback(async (bytes: Uint8Array): Promise<PageData[]> => {
+  const loadFromPdfBytes = useCallback(async (bytes: Uint8Array, fileName = 'document.pdf'): Promise<PageData[]> => {
+    const groupId = generateId();
     const extracted = await extractPageBytes(bytes);
     const pages: PageData[] = [];
 
@@ -18,6 +19,8 @@ export function usePdfLoader() {
       pages.push({
         id: generateId(),
         sourceType: 'pdf',
+        sourceFileName: fileName,
+        sourceGroupId: groupId,
         pdfBytes: pageBytes,
         imageDataUrl,
         fabricJSON: null,
@@ -34,24 +37,27 @@ export function usePdfLoader() {
   const loadFromFile = useCallback(async (file: File): Promise<PageData[]> => {
     if (isPdfFile(file)) {
       const buffer = await fileToArrayBuffer(file);
-      return loadFromPdfBytes(new Uint8Array(buffer));
+      return loadFromPdfBytes(new Uint8Array(buffer), file.name);
     }
 
     if (isImageFile(file)) {
       const dataUrl = await fileToDataUrl(file);
-      return [await loadFromImageDataUrl(dataUrl)];
+      return [await loadFromImageDataUrl(dataUrl, file.name)];
     }
 
     return [];
   }, [loadFromPdfBytes]);
 
-  const loadFromImageDataUrl = useCallback(async (dataUrl: string): Promise<PageData> => {
+  const loadFromImageDataUrl = useCallback(async (dataUrl: string, fileName = 'image.png'): Promise<PageData> => {
     const { pdfBytes, width, height } = await createPdfFromImage(dataUrl);
     const { dataUrl: thumbnailDataUrl } = await renderPageToDataUrl(pdfBytes, 0, THUMBNAIL_RENDER_SCALE);
+    const groupId = generateId();
 
     return {
       id: generateId(),
       sourceType: 'image',
+      sourceFileName: fileName,
+      sourceGroupId: groupId,
       pdfBytes,
       imageDataUrl: dataUrl,
       fabricJSON: null,

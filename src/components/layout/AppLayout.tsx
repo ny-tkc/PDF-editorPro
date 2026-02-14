@@ -4,12 +4,15 @@ import { usePdfLoader } from '../../hooks/usePdfLoader';
 import { useClipboardPaste } from '../../hooks/useClipboardPaste';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { Toolbar } from './Toolbar';
-import { ThumbnailSidebar } from '../sidebar/ThumbnailSidebar';
-import { EditorCanvas } from '../canvas/EditorCanvas';
+import { DeskView } from '../views/DeskView';
+import { GroupView } from '../views/GroupView';
+import { BookView } from '../views/BookView';
+import { EditModal } from '../canvas/EditModal';
 import { DropZone } from '../ui/DropZone';
+import { EmptyState } from '../ui/EmptyState';
 
 export function AppLayout() {
-  const { dispatch } = useDocument();
+  const { state, dispatch } = useDocument();
   const { loadFiles, loadFromImageDataUrl } = usePdfLoader();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -32,19 +35,32 @@ export function AppLayout() {
   const { isDragging } = useDragAndDrop(containerRef, handleFilesDropped);
   useClipboardPaste(handleImagePasted);
 
+  const renderView = () => {
+    if (state.pages.length === 0) {
+      return <EmptyState />;
+    }
+
+    switch (state.viewMode) {
+      case 'desk':
+        return <DeskView />;
+      case 'group':
+        return <GroupView />;
+      case 'book':
+        return <BookView />;
+    }
+  };
+
   return (
     <div
       ref={containerRef}
       className="h-full flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
     >
       <Toolbar />
-      <div className="flex flex-1 overflow-hidden relative">
-        <div className="w-[220px] flex-shrink-0">
-          <ThumbnailSidebar />
-        </div>
-        <EditorCanvas />
+      <div className="flex-1 flex overflow-hidden relative">
+        {renderView()}
         <DropZone isDragging={isDragging} />
       </div>
+      <EditModal />
     </div>
   );
 }

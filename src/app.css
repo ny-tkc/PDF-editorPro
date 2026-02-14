@@ -1,9 +1,5 @@
 @import 'tailwindcss';
 
-:root {
-  --sidebar-width: 220px;
-}
-
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -13,3 +9,51 @@ html, body, #root {
 .dark {
   color-scheme: dark;
 }
+
+/* Desk mode - wood texture feel */
+.desk-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(139,119,101,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 50%, rgba(139,119,101,0.06) 0%, transparent 50%),
+    linear-gradient(180deg, #ede8e3 0%, #e0d8d0 100%);
+}
+.dark .desk-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(30,40,60,0.5) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 50%, rgba(30,40,60,0.3) 0%, transparent 50%),
+    linear-gradient(180deg, #111827 0%, #0f172a 100%);
+}
+
+/* Page card */
+.page-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.page-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+
+/* Book mode */
+.book-page {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+/* Stacked pages effect */
+.stacked-shadow {
+  box-shadow:
+    3px 3px 0 #d1ccc7,
+    6px 6px 0 #c4beb8,
+    0 8px 32px rgba(0,0,0,0.12);
+}
+.dark .stacked-shadow {
+  box-shadow:
+    3px 3px 0 #2d3748,
+    6px 6px 0 #1a202c,
+    0 8px 32px rgba(0,0,0,0.4);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb { background: #555; }
