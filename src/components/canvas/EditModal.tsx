@@ -17,6 +17,24 @@ export function EditModal() {
     [docState.pages, editorState.editingPageId]
   );
 
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (!editorState.isEditMode) return;
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, [editorState.isEditMode]);
+
   // Render page image if needed
   useEffect(() => {
     if (!editingPage?.pdfBytes || editingPage.imageDataUrl) return;
@@ -37,7 +55,12 @@ export function EditModal() {
     [editingPage, docDispatch]
   );
 
-  const { addText, addRect, addCircle, addArrow, addLine, deleteSelected } = useFabricCanvas({
+  const {
+    setDrawingTool,
+    deleteSelected,
+    selectedProps,
+    updateSelectedObject,
+  } = useFabricCanvas({
     canvasElRef,
     width: canvasWidth,
     height: canvasHeight,
@@ -49,27 +72,18 @@ export function EditModal() {
     gridSize: editorState.gridSize,
   });
 
-  // Tool actions
-  const prevToolRef = useRef(editorState.activeTool);
+  // Sync drawing tool when editor tool changes
   useEffect(() => {
     if (!editorState.isEditMode) return;
-    if (prevToolRef.current === editorState.activeTool) return;
-    prevToolRef.current = editorState.activeTool;
+    setDrawingTool(editorState.activeTool);
+  }, [editorState.activeTool, editorState.isEditMode, setDrawingTool]);
 
-    switch (editorState.activeTool) {
-      case 'text': addText(); editorDispatch({ type: 'SET_TOOL', tool: 'select' }); break;
-      case 'arrow': addArrow(); editorDispatch({ type: 'SET_TOOL', tool: 'select' }); break;
-      case 'rectangle': addRect(); editorDispatch({ type: 'SET_TOOL', tool: 'select' }); break;
-      case 'circle': addCircle(); editorDispatch({ type: 'SET_TOOL', tool: 'select' }); break;
-      case 'line': addLine(); editorDispatch({ type: 'SET_TOOL', tool: 'select' }); break;
-    }
-  }, [editorState.activeTool, editorState.isEditMode, addText, addArrow, addRect, addCircle, addLine, editorDispatch]);
-
-  // Close on Escape
+  // Close on Escape, Delete for selected objects
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         editorDispatch({ type: 'EXIT_EDIT_MODE' });
+        editorDispatch({ type: 'SET_TOOL', tool: 'select' });
       }
       if (e.key === 'Delete' && editorState.isEditMode) {
         deleteSelected();
@@ -83,6 +97,7 @@ export function EditModal() {
     (e: React.MouseEvent) => {
       if (e.target === backdropRef.current) {
         editorDispatch({ type: 'EXIT_EDIT_MODE' });
+        editorDispatch({ type: 'SET_TOOL', tool: 'select' });
       }
     },
     [editorDispatch]
@@ -113,7 +128,10 @@ export function EditModal() {
             </span>
           </div>
           <button
-            onClick={() => editorDispatch({ type: 'EXIT_EDIT_MODE' })}
+            onClick={() => {
+              editorDispatch({ type: 'EXIT_EDIT_MODE' });
+              editorDispatch({ type: 'SET_TOOL', tool: 'select' });
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <span>閉じる</span>
@@ -122,7 +140,11 @@ export function EditModal() {
         </div>
 
         {/* Toolbar */}
-        <CanvasToolbar onDeleteSelected={deleteSelected} />
+        <CanvasToolbar
+          onDeleteSelected={deleteSelected}
+          selectedProps={selectedProps}
+          onUpdateSelectedObject={updateSelectedObject}
+        />
 
         {/* Canvas area */}
         <div className="flex-1 overflow-auto p-6 bg-gray-50 dark:bg-gray-900/50">

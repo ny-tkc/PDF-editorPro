@@ -1,6 +1,7 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { Canvas, FabricImage } from 'fabric';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { Canvas, FabricImage, FabricObject } from 'fabric';
 import { createRectangle, createCircle, createLine, createArrow, createTextbox } from '../utils/fabricHelpers';
+import type { EditTool } from '../types';
 
 interface UseFabricCanvasOptions {
   canvasElRef: React.RefObject<HTMLCanvasElement | null>;
@@ -12,6 +13,14 @@ interface UseFabricCanvasOptions {
   onModified: (json: string) => void;
   gridSnap: boolean;
   gridSize: number;
+}
+
+export interface SelectedObjectProps {
+  strokeWidth: number;
+  stroke: string;
+  fill: string;
+  fontSize?: number;
+  opacity: number;
 }
 
 export function useFabricCanvas({
@@ -27,6 +36,10 @@ export function useFabricCanvas({
 }: UseFabricCanvasOptions) {
   const canvasRef = useRef<Canvas | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const drawingToolRef = useRef<EditTool>('select');
+  const isDrawingRef = useRef(false);
+  const drawStartRef = useRef({ x: 0, y: 0 });
+  const [selectedProps, setSelectedProps] = useState<SelectedObjectProps | null>(null);
 
   useEffect(() => {
     if (!canvasElRef.current || !isEditMode) return;
@@ -51,6 +64,11 @@ export function useFabricCanvas({
     c.on('object:added', fireModified);
     c.on('object:removed', fireModified);
 
+    // Selection tracking for property panel
+    c.on('selection:created', () => updateSelectedProps(c));
+    c.on('selection:updated', () => updateSelectedProps(c));
+    c.on('selection:cleared', () => setSelectedProps(null));
+
     // Grid snap
     c.on('object:moving', (e) => {
       if (!gridSnap || !e.target) return;
@@ -61,6 +79,64 @@ export function useFabricCanvas({
       });
     });
 
+    // --- Drag-to-draw ---
+    c.on('mouse:down', (opt) => {
+      const tool = drawingToolRef.current;
+      if (tool === 'select') return;
+
+      const pointer = c.getScenePoint(opt.e);
+      isDrawingRef.current = true;
+      drawStartRef.current = { x: pointer.x, y: pointer.y };
+      c.selection = false;
+    });
+
+    c.on('mouse:up', (opt) => {
+      const tool = drawingToolRef.current;
+      if (!isDrawingRef.current || tool === 'select') return;
+      isDrawingRef.current = false;
+      c.selection = true;
+
+      const pointer = c.getScenePoint(opt.e);
+      const sx = drawStartRef.current.x;
+      const sy = drawStartRef.current.y;
+      const ex = pointer.x;
+      const ey = pointer.y;
+
+      const w = Math.abs(ex - sx);
+      const h = Math.abs(ey - sy);
+      const minX = Math.min(sx, ex);
+      const minY = Math.min(sy, ey);
+
+      // Minimum drag distance to create
+      if (w < 5 && h < 5) return;
+
+      let obj: FabricObject | null = null;
+
+      switch (tool) {
+        case 'rectangle':
+          obj = createRectangle(minX, minY, w, h);
+          break;
+        case 'circle':
+          obj = createCircle(minX, minY, Math.max(w, h) / 2);
+          break;
+        case 'line':
+          obj = createLine(sx, sy, ex, ey);
+          break;
+        case 'arrow':
+          obj = createArrow(sx, sy, ex, ey);
+          break;
+        case 'text':
+          obj = createTextbox(minX, minY, Math.max(w, 100));
+          break;
+      }
+
+      if (obj) {
+        c.add(obj);
+        c.setActiveObject(obj);
+        c.renderAll();
+      }
+    });
+
     // Load background image
     if (backgroundImageUrl) {
       FabricImage.fromURL(backgroundImageUrl).then((img) => {
@@ -69,12 +145,10 @@ export function useFabricCanvas({
         c.set('backgroundImage', img);
         c.renderAll();
 
-        // Load annotations after background
         if (initialJSON) {
           try {
             const json = JSON.parse(initialJSON);
             c.loadFromJSON(json).then(() => {
-              // Re-set background after loadFromJSON
               FabricImage.fromURL(backgroundImageUrl).then((bg) => {
                 bg.set({ selectable: false, evented: false });
                 bg.scaleToWidth(width);
@@ -93,44 +167,62 @@ export function useFabricCanvas({
       clearTimeout(debounceTimer.current);
       c.dispose();
       canvasRef.current = null;
+      setSelectedProps(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, backgroundImageUrl, width, height]);
 
-  const addText = useCallback(() => {
+  const updateSelectedProps = (c: Canvas) => {
+    const obj = c.getActiveObject();
+    if (!obj) { setSelectedProps(null); return; }
+    setSelectedProps({
+      strokeWidth: (obj.strokeWidth as number) ?? 2,
+      stroke: (obj.stroke as string) ?? '#ef4444',
+      fill: (obj.fill as string) ?? 'transparent',
+      fontSize: 'fontSize' in obj ? (obj as { fontSize: number }).fontSize : undefined,
+      opacity: obj.opacity ?? 1,
+    });
+  };
+
+  const setDrawingTool = useCallback((tool: EditTool) => {
+    drawingToolRef.current = tool;
     const c = canvasRef.current;
     if (!c) return;
-    c.add(createTextbox());
+    if (tool === 'select') {
+      c.selection = true;
+      c.defaultCursor = 'default';
+      c.getObjects().forEach((o) => o.set({ selectable: true, evented: true }));
+    } else {
+      c.discardActiveObject();
+      c.selection = false;
+      c.defaultCursor = 'crosshair';
+      c.getObjects().forEach((o) => o.set({ selectable: false, evented: false }));
+    }
     c.renderAll();
   }, []);
 
-  const addRect = useCallback(() => {
+  const updateSelectedObject = useCallback((props: Partial<SelectedObjectProps>) => {
     const c = canvasRef.current;
     if (!c) return;
-    c.add(createRectangle());
-    c.renderAll();
-  }, []);
+    const obj = c.getActiveObject();
+    if (!obj) return;
 
-  const addCircle = useCallback(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    c.add(createCircle());
-    c.renderAll();
-  }, []);
+    if (props.strokeWidth !== undefined) obj.set('strokeWidth', props.strokeWidth);
+    if (props.stroke !== undefined) obj.set('stroke', props.stroke);
+    if (props.fill !== undefined) obj.set('fill', props.fill);
+    if (props.opacity !== undefined) obj.set('opacity', props.opacity);
+    if (props.fontSize !== undefined && 'fontSize' in obj) {
+      (obj as { fontSize: number }).fontSize = props.fontSize;
+    }
 
-  const addArrow = useCallback(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    c.add(createArrow());
     c.renderAll();
-  }, []);
+    updateSelectedProps(c);
 
-  const addLine = useCallback(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    c.add(createLine());
-    c.renderAll();
-  }, []);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      onModified(JSON.stringify(c.toJSON(['id'])));
+    }, 300);
+  }, [onModified]);
 
   const deleteSelected = useCallback(() => {
     const c = canvasRef.current;
@@ -155,13 +247,11 @@ export function useFabricCanvas({
 
   return {
     canvas: canvasRef,
-    addText,
-    addRect,
-    addCircle,
-    addArrow,
-    addLine,
+    setDrawingTool,
     deleteSelected,
     toDataURL,
     getJSON,
+    selectedProps,
+    updateSelectedObject,
   };
 }
