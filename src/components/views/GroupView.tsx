@@ -50,7 +50,7 @@ const MiniPage = memo(function MiniPage({
         ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : 'hover:bg-white/50 dark:hover:bg-gray-700/30'}
       `}
       onClick={(e) => onSelect(page.id, e)}
-      onDoubleClick={() => onDoubleClick(page.id)}
+      onDoubleClick={(e) => { e.preventDefault(); onDoubleClick(page.id); }}
     >
       <div
         className="bg-white dark:bg-gray-700 rounded shadow-md overflow-hidden"

@@ -101,13 +101,13 @@ export function CanvasToolbar({ onDeleteSelected, selectedProps, onUpdateSelecte
             <input
               type="range"
               min={1}
-              max={20}
-              step={1}
+              max={30}
+              step={2}
               value={selectedProps.strokeWidth}
               onChange={(e) => onUpdateSelectedObject({ strokeWidth: Number(e.target.value) })}
-              className="w-16 h-1 accent-blue-500"
+              className="w-20 h-1 accent-blue-500"
             />
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 w-4 text-right tabular-nums">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 w-5 text-right tabular-nums">
               {selectedProps.strokeWidth}
             </span>
           </div>

@@ -1,9 +1,10 @@
 import { useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useDocument } from '../../hooks/useDocument';
 import { useEditor } from '../../hooks/useEditor';
 import { useFabricCanvas } from '../../hooks/useFabricCanvas';
 import { renderPageToDataUrl } from '../../services/pdfRenderService';
-import { PDF_RENDER_SCALE } from '../../utils/constants';
+import { PDF_RENDER_SCALE, THUMBNAIL_RENDER_SCALE } from '../../utils/constants';
 import { CanvasToolbar } from './CanvasToolbar';
 
 export function EditModal() {
@@ -17,22 +18,13 @@ export function EditModal() {
     [docState.pages, editorState.editingPageId]
   );
 
-  // Prevent background scroll when modal is open
+  // Prevent background scroll - simply lock overflow on html
   useEffect(() => {
     if (!editorState.isEditMode) return;
-    const scrollY = window.scrollY;
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.scrollTo(0, scrollY);
-    };
+    const html = document.documentElement;
+    const prevOverflow = html.style.overflow;
+    html.style.overflow = 'hidden';
+    return () => { html.style.overflow = prevOverflow; };
   }, [editorState.isEditMode]);
 
   // Render page image if needed
@@ -60,6 +52,7 @@ export function EditModal() {
     deleteSelected,
     selectedProps,
     updateSelectedObject,
+    toDataURL,
   } = useFabricCanvas({
     canvasElRef,
     width: canvasWidth,
@@ -78,40 +71,60 @@ export function EditModal() {
     setDrawingTool(editorState.activeTool);
   }, [editorState.activeTool, editorState.isEditMode, setDrawingTool]);
 
+  // Close handler - also regenerate thumbnail with annotations
+  const handleClose = useCallback(() => {
+    if (editingPage) {
+      const dataUrl = toDataURL();
+      if (dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          const scale = THUMBNAIL_RENDER_SCALE / PDF_RENDER_SCALE;
+          const thumbW = img.width * scale;
+          const thumbH = img.height * scale;
+          const thumbCanvas = document.createElement('canvas');
+          thumbCanvas.width = thumbW;
+          thumbCanvas.height = thumbH;
+          const ctx = thumbCanvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, thumbW, thumbH);
+          const thumbnailDataUrl = thumbCanvas.toDataURL('image/png');
+          docDispatch({ type: 'UPDATE_THUMBNAIL', pageId: editingPage.id, thumbnailDataUrl });
+        };
+        img.src = dataUrl;
+      }
+    }
+    editorDispatch({ type: 'EXIT_EDIT_MODE' });
+    editorDispatch({ type: 'SET_TOOL', tool: 'select' });
+  }, [editingPage, toDataURL, docDispatch, editorDispatch]);
+
   // Close on Escape, Delete for selected objects
   useEffect(() => {
+    if (!editorState.isEditMode) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        editorDispatch({ type: 'EXIT_EDIT_MODE' });
-        editorDispatch({ type: 'SET_TOOL', tool: 'select' });
-      }
-      if (e.key === 'Delete' && editorState.isEditMode) {
-        deleteSelected();
-      }
+      if (e.key === 'Escape') handleClose();
+      if (e.key === 'Delete') deleteSelected();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editorState.isEditMode, editorDispatch, deleteSelected]);
+  }, [editorState.isEditMode, handleClose, deleteSelected]);
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.target === backdropRef.current) {
-        editorDispatch({ type: 'EXIT_EDIT_MODE' });
-        editorDispatch({ type: 'SET_TOOL', tool: 'select' });
-      }
+      if (e.target === backdropRef.current) handleClose();
     },
-    [editorDispatch]
+    [handleClose]
   );
 
   if (!editorState.isEditMode || !editingPage) return null;
 
   const pageIndex = docState.pages.findIndex((p) => p.id === editingPage.id);
 
-  return (
+  return createPortal(
     <div
       ref={backdropRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
+      onMouseDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
     >
       <div className="relative flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-[95vw] max-h-[95vh] overflow-hidden">
         {/* Modal header */}
@@ -128,10 +141,7 @@ export function EditModal() {
             </span>
           </div>
           <button
-            onClick={() => {
-              editorDispatch({ type: 'EXIT_EDIT_MODE' });
-              editorDispatch({ type: 'SET_TOOL', tool: 'select' });
-            }}
+            onClick={handleClose}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <span>閉じる</span>
@@ -155,6 +165,7 @@ export function EditModal() {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -13,7 +13,7 @@ export const THUMBNAIL_RENDER_SCALE = 0.3;
 export const SHAPE_DEFAULTS = {
   fill: 'transparent',
   stroke: '#ef4444',
-  strokeWidth: 2,
+  strokeWidth: 5,
   cornerColor: '#3b82f6',
   cornerSize: 8,
   transparentCorners: false,
@@ -26,7 +26,7 @@ export const TEXT_DEFAULTS = {
   fontFamily: 'sans-serif',
 };
 
-export const ARROW_HEAD_LENGTH = 15;
+export const ARROW_HEAD_LENGTH = 20;
 export const ARROW_HEAD_ANGLE = Math.PI / 6;
 
 export const UNDO_MAX_HISTORY = 50;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Canvas, FabricImage, FabricObject } from 'fabric';
+import { Canvas, FabricImage, FabricObject, Rect, Circle, Line } from 'fabric';
 import { createRectangle, createCircle, createLine, createArrow, createTextbox } from '../utils/fabricHelpers';
 import type { EditTool } from '../types';
 
@@ -39,6 +39,7 @@ export function useFabricCanvas({
   const drawingToolRef = useRef<EditTool>('select');
   const isDrawingRef = useRef(false);
   const drawStartRef = useRef({ x: 0, y: 0 });
+  const previewObjRef = useRef<FabricObject | null>(null);
   const [selectedProps, setSelectedProps] = useState<SelectedObjectProps | null>(null);
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export function useFabricCanvas({
       });
     });
 
-    // --- Drag-to-draw ---
+    // --- Drag-to-draw with live preview ---
     c.on('mouse:down', (opt) => {
       const tool = drawingToolRef.current;
       if (tool === 'select') return;
@@ -90,11 +91,95 @@ export function useFabricCanvas({
       c.selection = false;
     });
 
+    c.on('mouse:move', (opt) => {
+      if (!isDrawingRef.current) return;
+      const tool = drawingToolRef.current;
+      if (tool === 'select') return;
+
+      const pointer = c.getScenePoint(opt.e);
+      const sx = drawStartRef.current.x;
+      const sy = drawStartRef.current.y;
+      const ex = pointer.x;
+      const ey = pointer.y;
+      const w = Math.abs(ex - sx);
+      const h = Math.abs(ey - sy);
+      const minX = Math.min(sx, ex);
+      const minY = Math.min(sy, ey);
+
+      // Remove old preview
+      if (previewObjRef.current) {
+        c.remove(previewObjRef.current);
+        previewObjRef.current = null;
+      }
+
+      if (w < 2 && h < 2) return;
+
+      let preview: FabricObject | null = null;
+
+      switch (tool) {
+        case 'rectangle':
+          preview = new Rect({
+            left: minX, top: minY, width: w, height: h,
+            fill: 'rgba(59,130,246,0.08)',
+            stroke: '#3b82f6',
+            strokeWidth: 2,
+            strokeDashArray: [6, 4],
+            selectable: false,
+            evented: false,
+          });
+          break;
+        case 'circle':
+          preview = new Circle({
+            left: minX, top: minY, radius: Math.max(w, h) / 2,
+            fill: 'rgba(59,130,246,0.08)',
+            stroke: '#3b82f6',
+            strokeWidth: 2,
+            strokeDashArray: [6, 4],
+            selectable: false,
+            evented: false,
+          });
+          break;
+        case 'line':
+        case 'arrow':
+          preview = new Line([sx, sy, ex, ey], {
+            stroke: '#3b82f6',
+            strokeWidth: 2,
+            strokeDashArray: [6, 4],
+            selectable: false,
+            evented: false,
+          });
+          break;
+        case 'text':
+          preview = new Rect({
+            left: minX, top: minY, width: Math.max(w, 20), height: Math.max(h, 24),
+            fill: 'rgba(59,130,246,0.05)',
+            stroke: '#3b82f6',
+            strokeWidth: 1,
+            strokeDashArray: [4, 3],
+            selectable: false,
+            evented: false,
+          });
+          break;
+      }
+
+      if (preview) {
+        c.add(preview);
+        previewObjRef.current = preview;
+        c.renderAll();
+      }
+    });
+
     c.on('mouse:up', (opt) => {
       const tool = drawingToolRef.current;
       if (!isDrawingRef.current || tool === 'select') return;
       isDrawingRef.current = false;
       c.selection = true;
+
+      // Remove preview
+      if (previewObjRef.current) {
+        c.remove(previewObjRef.current);
+        previewObjRef.current = null;
+      }
 
       const pointer = c.getScenePoint(opt.e);
       const sx = drawStartRef.current.x;
@@ -165,6 +250,7 @@ export function useFabricCanvas({
 
     return () => {
       clearTimeout(debounceTimer.current);
+      previewObjRef.current = null;
       c.dispose();
       canvasRef.current = null;
       setSelectedProps(null);
@@ -176,7 +262,7 @@ export function useFabricCanvas({
     const obj = c.getActiveObject();
     if (!obj) { setSelectedProps(null); return; }
     setSelectedProps({
-      strokeWidth: (obj.strokeWidth as number) ?? 2,
+      strokeWidth: (obj.strokeWidth as number) ?? 5,
       stroke: (obj.stroke as string) ?? '#ef4444',
       fill: (obj.fill as string) ?? 'transparent',
       fontSize: 'fontSize' in obj ? (obj as { fontSize: number }).fontSize : undefined,

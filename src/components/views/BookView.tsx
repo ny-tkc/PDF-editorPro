@@ -79,7 +79,7 @@ export function BookView() {
       onWheel={handleWheel}
     >
       {/* Stacked pages underneath (visual only) */}
-      <div className="relative" onDoubleClick={handleDoubleClick}>
+      <div className="relative" onDoubleClick={(e) => { e.preventDefault(); handleDoubleClick(); }}>
         {/* Shadow layers for stack effect */}
         {total > 2 && (
           <div className="absolute inset-0 translate-x-2 translate-y-2 bg-gray-200 dark:bg-gray-700 rounded-sm" />
@@ -93,9 +93,9 @@ export function BookView() {
           className="relative bg-white dark:bg-gray-700 rounded-sm shadow-2xl book-page cursor-pointer"
           style={{ transform: `rotate(${currentPage.rotation}deg)` }}
         >
-          {currentPage.imageDataUrl ? (
+          {(currentPage.imageDataUrl || currentPage.thumbnailDataUrl) ? (
             <img
-              src={currentPage.imageDataUrl}
+              src={currentPage.imageDataUrl || currentPage.thumbnailDataUrl || ''}
               alt={`Page ${currentIndex + 1}`}
               className="max-h-[70vh] max-w-[80vw] object-contain"
               draggable={false}

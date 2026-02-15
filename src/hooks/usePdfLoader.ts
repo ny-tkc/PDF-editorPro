@@ -4,32 +4,32 @@ import { generateId } from '../utils/idGenerator';
 import { extractPageBytes, createPdfFromImage } from '../services/pdfService';
 import { renderPageToDataUrl } from '../services/pdfRenderService';
 import { fileToArrayBuffer, fileToDataUrl, isImageFile, isPdfFile } from '../services/imageService';
-import { PDF_RENDER_SCALE, THUMBNAIL_RENDER_SCALE } from '../utils/constants';
+import { THUMBNAIL_RENDER_SCALE } from '../utils/constants';
 
 export function usePdfLoader() {
   const loadFromPdfBytes = useCallback(async (bytes: Uint8Array, fileName = 'document.pdf'): Promise<PageData[]> => {
     const groupId = generateId();
     const extracted = await extractPageBytes(bytes);
-    const pages: PageData[] = [];
 
-    for (const { pageBytes, width, height } of extracted) {
-      const { dataUrl: imageDataUrl } = await renderPageToDataUrl(pageBytes, 0, PDF_RENDER_SCALE);
-      const { dataUrl: thumbnailDataUrl } = await renderPageToDataUrl(pageBytes, 0, THUMBNAIL_RENDER_SCALE);
+    // Render thumbnails in parallel (skip high-res imageDataUrl for speed)
+    const thumbnailPromises = extracted.map(({ pageBytes }) =>
+      renderPageToDataUrl(pageBytes, 0, THUMBNAIL_RENDER_SCALE)
+    );
+    const thumbnails = await Promise.all(thumbnailPromises);
 
-      pages.push({
-        id: generateId(),
-        sourceType: 'pdf',
-        sourceFileName: fileName,
-        sourceGroupId: groupId,
-        pdfBytes: pageBytes,
-        imageDataUrl,
-        fabricJSON: null,
-        rotation: 0,
-        width,
-        height,
-        thumbnailDataUrl,
-      });
-    }
+    const pages: PageData[] = extracted.map(({ pageBytes, width, height }, i) => ({
+      id: generateId(),
+      sourceType: 'pdf' as const,
+      sourceFileName: fileName,
+      sourceGroupId: groupId,
+      pdfBytes: pageBytes,
+      imageDataUrl: null, // Deferred: rendered on demand when entering edit mode
+      fabricJSON: null,
+      rotation: 0,
+      width,
+      height,
+      thumbnailDataUrl: thumbnails[i].dataUrl,
+    }));
 
     return pages;
   }, []);
@@ -69,12 +69,9 @@ export function usePdfLoader() {
   }, []);
 
   const loadFiles = useCallback(async (files: File[]): Promise<PageData[]> => {
-    const allPages: PageData[] = [];
-    for (const file of files) {
-      const pages = await loadFromFile(file);
-      allPages.push(...pages);
-    }
-    return allPages;
+    // Process files in parallel for better speed
+    const results = await Promise.all(files.map((file) => loadFromFile(file)));
+    return results.flat();
   }, [loadFromFile]);
 
   return { loadFromFile, loadFiles, loadFromPdfBytes, loadFromImageDataUrl };

@@ -62,11 +62,12 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
     }
 
     case 'ROTATE_PAGE':
+      // Keep imageDataUrl and thumbnailDataUrl - we'll use CSS rotation for display
       return {
         ...state,
         pages: state.pages.map((p) =>
           p.id === action.pageId
-            ? { ...p, rotation: normalizeRotation(p.rotation, action.angle), thumbnailDataUrl: null, imageDataUrl: null }
+            ? { ...p, rotation: normalizeRotation(p.rotation, action.angle) }
             : p
         ),
       };
@@ -76,7 +77,7 @@ export function documentReducer(state: DocumentState, action: DocumentAction): D
       const result = [...state.pages];
       for (const page of state.pages) {
         if (action.pageIds.includes(page.id)) {
-          const dup: PageData = { ...page, id: generateId(), fabricJSON: null, thumbnailDataUrl: null };
+          const dup: PageData = { ...page, id: generateId(), fabricJSON: null, thumbnailDataUrl: page.thumbnailDataUrl };
           const idx = result.indexOf(page);
           result.splice(idx + 1 + newPages.length, 0, dup);
           newPages.push(dup);

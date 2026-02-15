@@ -58,7 +58,7 @@ const PageCard = memo(function PageCard({
         ${isSelected ? 'ring-3 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : ''}
       `}
       onClick={(e) => onSelect(page.id, e)}
-      onDoubleClick={() => onDoubleClick(page.id)}
+      onDoubleClick={(e) => { e.preventDefault(); onDoubleClick(page.id); }}
     >
       <div
         className="bg-white dark:bg-gray-700 rounded-md shadow-lg overflow-hidden"
